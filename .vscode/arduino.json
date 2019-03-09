@@ -1,0 +1,7 @@
+{
+    "board": "esp8266:esp8266:nodemcu",
+    "configuration": "CpuFrequency=80,UploadTool=esptool,UploadSpeed=115200,FlashSize=4M3M",
+    "port": "/dev/cu.SLAB_USBtoUART",
+    "programmer": "USBtinyISP",
+    "sketch": "sevengrow-temp-hum.ino"
+}
