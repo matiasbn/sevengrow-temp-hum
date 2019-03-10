@@ -1,82 +1,57 @@
-/*
- *  This sketch sends data via HTTP GET requests to data.sparkfun.com service.
- *
- *  You need to get streamId and privateKey at data.sparkfun.com and paste them
- *  below. Or just customize this script to talk to other HTTP servers.
- *
- */
-
-#include <ESP8266WiFi.h>
-#include <SimpleDHT.h>
-
-const char *ssid = "VTR-2778044";
-const char *password = "dnn6jtjpXvSq";
-
-// for DHT11,
-//      VCC: 5V or 3V
-//      GND: GND
-//      DATA: 2
-int pinDHT11 = 2;
-SimpleDHT11 dht11(pinDHT11);
-
-int value = 0;
+#include "header.h"
 
 void setup()
 {
+    pinMode(BUILTIN_LED, OUTPUT); // Initialize the BUILTIN_LED pin as an output
     Serial.begin(115200);
-    delay(10);
+    setup_wifi();
+    client.setServer(MQTT_SERVER, MQTT_PORT);
+    client.setCallback(callback);
 
-    // We start by connecting to a WiFi network
-
-    Serial.println();
-    Serial.println();
-    Serial.print("Connecting to ");
-    Serial.println(ssid);
-
-    WiFi.begin(ssid, password);
-
-    while (WiFi.status() != WL_CONNECTED)
+    Serial.setDebugOutput(true);
+    configTime(timezone * 3600, 0, "clock.wenu.cl", "time.nist.gov");
+    Serial.println("\nWaiting for time");
+    while (!time(nullptr))
     {
-        delay(500);
         Serial.print(".");
+        delay(1000);
     }
-
-    Serial.println("");
-    Serial.println("WiFi connected");
-    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());
 }
 
 void loop()
 {
-    // start working...
-    Serial.println("=================================");
-    Serial.println("Sample DHT11...");
-
-    // read without samples.
     byte temperature = 0;
     byte humidity = 0;
     int err = SimpleDHTErrSuccess;
+
+    if (!client.connected())
+    {
+        reconnect();
+    }
+    client.loop();
+
+    // read without samples.
     if ((err = dht11.read(&temperature, &humidity, NULL)) != SimpleDHTErrSuccess)
     {
         Serial.print("Read DHT11 failed, err=");
         Serial.println(err);
+        char dht11_err_message[40];
+        sprintf(dht11_err_message, "Read DHT11 failed, err=%s", err);
+        // client.publish(DHT11_TOPIC, dht11_err_message);
         delay(1000);
         return;
     }
 
-    Serial.print("Sample OK: ");
-    Serial.print((int)temperature);
-    Serial.print(" *C, ");
-    Serial.print((int)humidity);
-    Serial.println(" H");
+    char temp[40];
+    char hum[40];
 
-    // DHT11 sampling rate is 1HZ.
-    delay(1500);
+    time_t now = time(nullptr);
+    sprintf(temp, "%3i,%d", (int)temperature, now);
+    sprintf(hum, "%3i,%d", (int)humidity, now);
 
-    // Use WiFiClient class to create TCP connections
-    WiFiClient client;
+    client.publish(TEMPERATURE_TOPIC, temp);
+    client.publish(HUMIDITY_TOPIC, hum);
 
-    Serial.println();
-    Serial.println("closing connection");
+    Serial.println(now);
+    delay(DELIVER_WAIT);
 }
